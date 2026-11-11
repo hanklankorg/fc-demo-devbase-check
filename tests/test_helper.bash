@@ -5,7 +5,7 @@
 #
 # Shared test helper functions for BATS tests
 #
-# This file follows the same patterns as devbase-core and reusable-ci test helpers
+# This file follows the same patterns as the devbase-core test helpers
 # to ensure consistent test isolation across all devbase projects.
 #
 # Shellcheck disabled:

@@ -2,6 +2,10 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 name: Pull Request Workflow
+
+# Forge CI owns the lint and security gate. The repository's own linters and
+# its Bats tests run in the lint and test jobs below; the orchestrator never
+# runs them. Require all three as status checks.
 on: # yamllint disable-line rule:truthy
   pull_request:
 permissions:
@@ -11,24 +15,52 @@ concurrency:
   cancel-in-progress: true
 jobs:
   pr-checks:
-    uses: diggsweden/reusable-ci/.github/workflows/pullrequest-orchestrator.yml@1a76b0c1a69952742ea663c8cfe77d8fe1d168ad # v3.1.0
+    uses: diggsweden/forge-ci/.github/workflows/pullrequest-orchestrator.yml@PIN_FORGE_CI_SHA # v0.90.0
     permissions:
+      actions: read
       contents: read
-      packages: read
-      security-events: write
     secrets:
+      # Optional: uploads lint security findings (SARIF) to Code Scanning.
       CODE_SCANNING_TOKEN: ${{ secrets.CODE_SCANNING_TOKEN }}
     with:
-      reusable-ci-ref: 997d7dc2238b40c79798fda309d8061b0707a3e5
+      # The full commit the uses: ref above names; every job of the route runs
+      # the CLI built in this run from exactly this commit.
+      forge-ci-binary-ref: PIN_FORGE_CI_SHA # v0.90.0
       # No buildable artifacts - this is a linting toolkit
-      project-type: maven
-      # Use just+mise-based linting (replaces commitlint, licenselint, megalint)
-      linters.devbasecheck: true
-      # Disable deprecated linters (handled by justmiselint)
-      linters.commitlint: false
-      linters.licenselint: false
-      linters.megalint: false
-      linters.publiccodelint: false
+      project-type: meta
+      lint-engine: nanolinter
+      # The lint image, pinned by digest: the plan job refuses a tag.
+      nanolinter-image: ghcr.io/itiquette/nanolinter:core@sha256:PIN_DIGEST
+      # Pinned by digest and admitted before any job runs; replace FIXME with
+      # the digests of the release you call (docs/runtime-images.md).
+      runtime-image: ghcr.io/diggsweden/forge-ci-runtime-base@sha256:0000000000000000000000000000000000000000000000000000000000000000 # FIXME v0.90.0 digest
+      canonical-builder-image: ghcr.io/diggsweden/forge-ci-runtime-go-1.27@sha256:0000000000000000000000000000000000000000000000000000000000000000 # FIXME v0.90.0 digest
+
+  # The repository linting itself with its own linters (just + mise): commits,
+  # secrets, YAML, Markdown, shell, Actions, licences and containers.
+  lint:
+    name: "Lint: devbase-check"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Fetch base branch for PR
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF":"$BASE_REF"
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.59.0
+      - name: Reset install-time working tree changes
+        run: git checkout -- .
+      - name: Run linting
+        run: just lint-all
+
   test:
     runs-on: ubuntu-latest
     steps:

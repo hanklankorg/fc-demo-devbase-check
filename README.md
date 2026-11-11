@@ -494,42 +494,44 @@ When running in GitHub Actions, results appear in the job summary with:
 
 No configuration needed - detection is automatic.
 
-### Using with reusable-ci
+### Using in a workflow
 
-If using [reusable-ci](https://github.com/diggsweden/reusable-ci), enable devbase-check in your workflow:
+Run the linters as a job of your pull request workflow. Pin the release tag
+and let [mise](https://mise.jdx.dev/) install the tools your `.mise.toml`
+names:
 
 ```yaml
 jobs:
   lint:
-    uses: diggsweden/reusable-ci/.github/workflows/pullrequest-orchestrator.yml@997d7dc2238b40c79798fda309d8061b0707a3e5 # v3.0.0
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
-    secrets:
-      CODE_SCANNING_TOKEN: ${{ secrets.CODE_SCANNING_TOKEN }}
-    with:
-      reusable-ci-ref: 997d7dc2238b40c79798fda309d8061b0707a3e5
-      project-type: maven
-      linters.devbasecheck: true
-      linters.commitlint: false
-      linters.licenselint: false
-      linters.megalint: false
+    env:
+      DEVBASE_CHECK_VERSION: "v0.6.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install devbase-check
+        run: |
+          git clone --depth 1 --branch "$DEVBASE_CHECK_VERSION" \
+            https://github.com/diggsweden/devbase-check \
+            "$HOME/.local/share/devbase-check"
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - name: Run linting
+        run: just lint-all
 ```
 
-Pin `uses` and `reusable-ci-ref` to the same release commit. v3 requires
-explicit `secrets:` mappings using the canonical names; `env:` does not pass
-secrets to a reusable workflow, and legacy secret names have no aliases.
+The commit linter compares against the base branch, so the checkout needs the
+full history (`fetch-depth: 0`).
 
-This repository's PR and Scorecard workflows pass only `CODE_SCANNING_TOKEN`
-for Code Scanning uploads. Its changelog-only release workflow passes
-`RELEASE_TOKEN`, `RELEASE_GPG_PRIVATE_KEY`, `RELEASE_GPG_PASSPHRASE`, and
-`RELEASE_GPG_PUBLIC_KEY` for release validation, signing, and publication.
-Configure these canonical repository or organisation secrets and grant this
-repository access. Release jobs also need `pull-requests: read` for changelog
-metadata, alongside their other release permissions.
-
-See the [reusable-ci v3 migration guide](https://github.com/diggsweden/reusable-ci/blob/997d7dc2238b40c79798fda309d8061b0707a3e5/docs/migration.md)
-for the complete secret-name mapping and release-tag requirements.
+This repository's own workflows call
+[forge-ci](https://github.com/diggsweden/forge-ci). The pull request and
+Scorecard workflows pass only `CODE_SCANNING_TOKEN`, for Code Scanning
+uploads. The changelog-only release workflow passes `RELEASE_TOKEN`,
+`RELEASE_GPG_PRIVATE_KEY`, `RELEASE_GPG_PASSPHRASE` and
+`RELEASE_GPG_PUBLIC_KEY`, and starts from a signed `release-request/vX.Y.Z`
+tag.
 
 ## Directory Structure
 
