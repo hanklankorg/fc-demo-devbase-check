@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Digg - Agency for Digital Government
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# The exclusions linters/shell.sh passes to shellcheck, for every caller.
+disable=SC1091,SC2034,SC2155
+# The linters read $? after a chain of alternatives.
+disable=SC2181

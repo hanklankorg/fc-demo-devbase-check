@@ -64,7 +64,7 @@ Disable base linters you dont want.
 
 - **`lint-base`** - General inters that work on most project (YAML, shell, secrets, etc.)
 - **`lint-all`** - Uses `lint-base`, override to add Java/Node/Python linters
-- **Individual recipes** - Run them seperatly, example `just lint-yaml` or `just lint-shell`.
+- **Individual recipes** - Run them separately, example `just lint-yaml` or `just lint-shell`.
 
 ### Base Linters
 
